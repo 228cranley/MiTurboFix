@@ -7,6 +7,7 @@
 using CTimerProto = void( __cdecl* )();
 using CMessagesProto = void(__cdecl*)(char* text, uint32_t duration, uint16_t style);
 using LoadTxdProto = int(__cdecl*)(uint32_t txdIndex, char* fileName);
+using RwStreamOpenProto = void*(__cdecl*)(int type, int accessType, const char* pData);
 
 
 constexpr auto REG_CONFIG_TREE                  = "SOFTWARE\\SAMP";
@@ -52,6 +53,7 @@ public:
 
     void InstallPatchAddHospitalRestartPoint();
     bool IsTxdFileSafe(const char* fileName);
+    bool IsDffFileSafe(const char* fileName);
     bool ReadExact(FILE* file, void* lpOut, size_t dwSize);
 
 
@@ -68,6 +70,7 @@ private:
     kthook::kthook_simple<CTimerProto> hookCTimerUpdate{ reinterpret_cast<void*>(0x561B10) };
     kthook::kthook_simple<CMessagesProto> hookCMessages_AddBigMessageHooked{ reinterpret_cast<void*>(0x69F2B0) };
     kthook::kthook_simple<LoadTxdProto> hookLoadTxdFile { reinterpret_cast<void*>(0x7320B0) };
+    kthook::kthook_simple<RwStreamOpenProto> hookRwStreamOpen { reinterpret_cast<void*>(0x7ECEF0) };
 
 
     
@@ -75,6 +78,7 @@ private:
     void mainloop(const decltype(hookCTimerUpdate)& hook);
     void CMessages_AddBigMessageHooked(const decltype(hookCMessages_AddBigMessageHooked)& hook, char* text, uint32_t duration, uint16_t style);
     int LoadTxdFileHooked(const decltype(hookLoadTxdFile)& hook, uint32_t txdIndex, char* fileName);
+    void* RwStreamOpenHooked(const decltype(hookRwStreamOpen)& hook, int type, int accessType, const char* pData);
 
 
 /// <summary>
