@@ -41,17 +41,30 @@ namespace Menu {
     };
 };
 
-namespace Texture {
+namespace RenderWare {
     static const uint32_t kRwStruct = 0x01;
     static const uint32_t kRwTextureDictionary = 0x16;
+    static const uint32_t kRwClump = 0x10;
+    static const uint32_t kRwFrameList = 0x0E;
+    static const uint32_t kRwAtomic = 0x14;
+    static const uint32_t kRwLight = 0x12;
+    static const uint32_t kRwCamera = 0x05;
+    static const uint32_t kRwGeometryList = 0x1A;
+    static const uint32_t kRwExtension = 0x03;
 
-    struct ChunkHeader 
+    static const uint32_t kAtomicStructSize = 16;
+    static const uint32_t kLightStructSize = 24;
+    static const uint32_t kCameraStructSize = 32;
+
+    struct ChunkHeader
     {
         uint32_t type;
         uint32_t length;
         uint32_t version;
     };
 };
+
+namespace Texture = RenderWare;
 
 
 /// <summary>
