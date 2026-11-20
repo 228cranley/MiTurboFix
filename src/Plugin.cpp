@@ -54,6 +54,9 @@ Plugin::Plugin(HMODULE hndl) : hModule(hndl) {
     hookLoadTxdFile.set_cb(std::bind(&Plugin::LoadTxdFileHooked, this, _1, _2, _3));
     hookLoadTxdFile.install();
 
+    hookRwStreamOpen.set_cb(std::bind(&Plugin::RwStreamOpenHooked, this, _1, _2, _3, _4));
+    hookRwStreamOpen.install();
+
 }
 
 void Plugin::mainloop(const decltype(hookCTimerUpdate)& hook) {
@@ -113,6 +116,74 @@ int Plugin::LoadTxdFileHooked(const decltype(hookLoadTxdFile)& hook, uint32_t tx
 
 bool Plugin::ReadExact(FILE* file, void* lpOut, size_t dwSize) {
     return fread_s(lpOut, dwSize, 1, dwSize, file) == dwSize;
+}
+
+void* Plugin::RwStreamOpenHooked(const decltype(hookRwStreamOpen)& hook, int type, int accessType, const char* pData)
+{
+    if (type == 2 && pData) {
+        size_t len = strlen(pData);
+        if (len > 4 && _stricmp(pData + len - 4, ".dff") == 0) {
+            if (!Plugin::IsDffFileSafe(pData)) {
+                Plugin::AddChatMessageDebug(Debug::LogLevel::DetectNotify, 0xFFFFFFFF, __FUNCTION__ ": DFF malformed. File = %s", pData);
+                return nullptr;
+            }
+        }
+    }
+    return hook.get_trampoline()(type, accessType, pData);
+}
+
+bool Plugin::IsDffFileSafe(const char* fileName) {
+    FILE* file = NULL;
+    errno_t err = fopen_s(&file, fileName, "rb");
+
+    if (err != 0 || !file)
+        return true;
+
+    RenderWare::ChunkHeader hdr = {};
+
+    if (!ReadExact(file, &hdr, sizeof(hdr)) || hdr.type != RenderWare::kRwClump) {
+        fclose(file);
+        return true;
+    }
+
+    uint32_t clumpEnd = sizeof(RenderWare::ChunkHeader) + hdr.length;
+    RenderWare::ChunkHeader parent = {};
+    bool safe = true;
+
+    while (ftell(file) + sizeof(RenderWare::ChunkHeader) <= clumpEnd) {
+        RenderWare::ChunkHeader chunk = {};
+        if (!ReadExact(file, &chunk, sizeof(chunk)))
+            break;
+
+        if (chunk.type == RenderWare::kRwAtomic ||
+            chunk.type == RenderWare::kRwLight ||
+            chunk.type == RenderWare::kRwCamera)
+        {
+            parent = chunk;
+            long parentStart = ftell(file);
+
+            RenderWare::ChunkHeader inner = {};
+            if (ReadExact(file, &inner, sizeof(inner)) && inner.type == RenderWare::kRwStruct) {
+                uint32_t maxSize = 0;
+                if (parent.type == RenderWare::kRwAtomic) maxSize = RenderWare::kAtomicStructSize;
+                else if (parent.type == RenderWare::kRwLight) maxSize = RenderWare::kLightStructSize;
+                else if (parent.type == RenderWare::kRwCamera) maxSize = RenderWare::kCameraStructSize;
+
+                if (maxSize && inner.length > maxSize) {
+                    safe = false;
+                    break;
+                }
+            }
+
+            fseek(file, parentStart + parent.length, SEEK_SET);
+            continue;
+        }
+
+        fseek(file, chunk.length, SEEK_CUR);
+    }
+
+    fclose(file);
+    return safe;
 }
 
 bool Plugin::IsTxdFileSafe(const char* fileName) {
