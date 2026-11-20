@@ -44,14 +44,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Clean build directory
+        shell: pwsh
+        run: |
+          if (Test-Path "build") {
+            Remove-Item -Recurse -Force "build"
+          }
+
       - name: Configure CMake
+        shell: pwsh
         run: |
           cmake -B "${{ github.workspace }}/build" `
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 `
+            "-DCMAKE_POLICY_VERSION_MINIMUM:STRING=3.5" `
             -A Win32
 
       - name: Build
+        shell: pwsh
         run: |
           cmake --build "${{ github.workspace }}/build" `
             --config ${{ env.BUILD_TYPE }} `
